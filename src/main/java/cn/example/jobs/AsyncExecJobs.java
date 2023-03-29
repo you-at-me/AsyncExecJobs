@@ -467,7 +467,6 @@ public class AsyncExecJobs {
                 }
             }
         }));
-
     }
 
     private void samToBam() {
@@ -516,6 +515,7 @@ public class AsyncExecJobs {
                 System.out.println("======= No. of sam not equals No. of bam =======");
                 System.exit(0);
             }
+            System.out.println("====== sam to bam transfer finished ======");
         }
 
     }
