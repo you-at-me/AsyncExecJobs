@@ -33,7 +33,6 @@ public class AsyncExecJobs {
 
     private final String SAM_FILE_PATH = "/sam/";
     private final String BAM_FILE_PATH = "/bam/";
-    private final String SORTED_BAM_FILE_PATH = "/sorted_bam/";
     private final String DUPLICATED_FILE_PATH = "/duplicated/";
     private final String GVCF_FILE_PATH = "/gvcf/";
     private final String PLINK_FILE_PATH = "/plink/";
@@ -58,14 +57,16 @@ public class AsyncExecJobs {
     /**
      * 目录集合列表
      */
-    private final List<String> list = Arrays.asList(SAM_FILE_PATH, BAM_FILE_PATH, SORTED_BAM_FILE_PATH, DUPLICATED_FILE_PATH, GVCF_FILE_PATH, PLINK_FILE_PATH, GCTA_FILE_PATH, LOG_PATH, PCA_PATH);
+    private final List<String> list = Arrays.asList(SAM_FILE_PATH, BAM_FILE_PATH, DUPLICATED_FILE_PATH, GVCF_FILE_PATH, PLINK_FILE_PATH, GCTA_FILE_PATH, LOG_PATH, PCA_PATH);
+
+    private final BlockingQueue<Runnable> blockingQueue = new ArrayBlockingQueue<>(JOB);
 
     private final ThreadPoolExecutor poolExecutor = new ThreadPoolExecutor(
             THREAD_NUM,  // 线程池的核心线程数量，默认4
             8,  // 线程池的最大线程数，也就是核心线程和临时线程的总和，这里默认是8
-            60, // 临时线程的存活时间数
+            6, // 临时线程的存活时间数
             TimeUnit.SECONDS,  // 临时线程的存活时间单位
-            new ArrayBlockingQueue<>(JOB), // 线程任务等待的阻塞队列，设置多少个阻塞的线程数量，等待执行的线程任务就只能最多是多少个，超过的线程数将被通过下述策略去处理那些超过的线程任务。
+            blockingQueue, // 线程任务等待的阻塞队列，设置多少个阻塞的线程数量，等待执行的线程任务就只能最多是多少个，超过的线程数将被通过下述策略去处理那些超过的线程任务。
             Executors.defaultThreadFactory(),  // 创建线程的工厂类型，一般走默认就行
             new ThreadPoolExecutor.CallerRunsPolicy() // 当线程提交的任务超过了线程池的最大线程数和阻塞队列等待的线程数总和时，该是以何种策略去处理这些线程。一个可选择的策略有四种，这里设置的那些超过的线程任务替换掉等待时间最长的那个线程任务
     );
@@ -385,7 +386,7 @@ public class AsyncExecJobs {
     }
 
     private void createFaIndex() {
-        String faLogPath = SOURCE_FILE_PATH + LOG_PATH + "bwa_index.log";
+        String faLogPath = SOURCE_FILE_PATH + LOG_PATH + "fa_index.log";
         String shell = String.format("bwa index -a bwtsw %s >%s 2>&1 %n", FASTA_FILE_PATH, faLogPath);
         CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "==== start create index ===="), poolExecutor).whenComplete((v, e) -> {
             if (Objects.isNull(e) && v == 0) {
@@ -408,16 +409,19 @@ public class AsyncExecJobs {
         }
         CountDownLatch latch = new CountDownLatch(gzList.size());
         gzList.forEach(filePath -> {
-            String targetPrefix = filePath.substring(filePath.length() - 15, filePath.length() - 8);
+            String targetPrefix = getPrefixName(filePath, ".1.fq.gz");
             String samFilePath = SOURCE_FILE_PATH + SAM_FILE_PATH + targetPrefix + ".sam";
             String firstFqFilePath = SOURCE_FILE_PATH + "/" + targetPrefix + ".1.fq.gz";
             String secondFqFilePath = SOURCE_FILE_PATH + "/" + targetPrefix + ".2.fq.gz";
-            String bwaLogPath = SOURCE_FILE_PATH + LOG_PATH + targetPrefix + ".log";
-            String shell = String.format("bwa mem -t %s -M -R \"@RG\\tID:%s\\tSM:%s\\tPL:ILLUMINA\" %s %s %s -o %s >%s 2>&1 %n", THREAD_NUM, firstFqFilePath, secondFqFilePath, FASTA_FILE_PATH, firstFqFilePath, secondFqFilePath, samFilePath, bwaLogPath);
+            String fgToSamLogPath = SOURCE_FILE_PATH + LOG_PATH + targetPrefix + ".fqToSam.log";
+            String shell = String.format("bwa mem -t %s -M -R \"@RG\\tID:%s\\tSM:%s\\tPL:ILLUMINA\" %s %s %s -o %s >%s 2>&1 %n", THREAD_NUM, firstFqFilePath, secondFqFilePath, FASTA_FILE_PATH, firstFqFilePath, secondFqFilePath, samFilePath, fgToSamLogPath);
             CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "==== start transfer " + targetPrefix + " to sam ===="), poolExecutor).whenComplete((v, e) -> {
                 if (Objects.isNull(e) && v == 0) {
                     System.out.printf("==== the %s file has finished transferring to sam ! ==== %n%n", targetPrefix);
                     latch.countDown();
+                } else {
+                    System.out.printf("==== the %s file failed transferring to sam", targetPrefix);
+                    System.out.printf("==== the %s file has finished transferring to sam ! ==== %n%n", targetPrefix);
                 }
             }).exceptionally(throwable -> {
                 System.out.printf("the %s file failed to transfer to sam %n", targetPrefix);
@@ -425,54 +429,37 @@ public class AsyncExecJobs {
                 return null;
             });
         });
-        if (latch.getCount() != 0) { // 注意线程减少计数的count if判断的写法
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                System.out.printf("latch await exception:%s %n", e.getMessage());
-            }
-        }
-        {
-            System.out.println(("========= transfer all fq.gz to sam finished! ========="));
-            this.validateSam();
-        }
+        latchWait(latch);
+        System.out.println(("========= transfer all fq.gz to sam finished! ========="));
+        this.validateSam();
     }
 
     private void validateSam() {
         System.out.println("====== start validate sam files =======");
-        List<String> invalidSamFiles = new ArrayList<>();
-        String shell = "gatk ValidateSamFile --INPUT %s %n";
+        String shell = "gatk ValidateSamFile --INPUT %s >%s 2>&1 %n";
         List<String> samFileLists = listFilesWithEnd(SOURCE_FILE_PATH + SAM_FILE_PATH, ".sam");
-        CyclicBarrier cyclicBarrier = new CyclicBarrier(samFileLists.size(), () -> {
-            if (invalidSamFiles.size() > 0) {
-                System.out.printf("sam file validate failed, check:%s %n", invalidSamFiles);
-                System.exit(0);
-            }
-            {
-                System.out.println("====== sam files validate finished ======");
-                this.samToBam();
-            }
-        });
-        samFileLists.forEach(filePath -> CompletableFuture.supplyAsync(() -> {
+        CountDownLatch latch = new CountDownLatch(samFileLists.size());
+        for (String filePath : samFileLists) {
             String[] split = filePath.split("/");
-            return executeAsyncShell(String.format(shell, filePath), "==== start validate " + split[split.length - 1] + " ====");
-        }, poolExecutor).whenComplete((v, e) -> {
-            if (!Objects.isNull(e) || v != 0) {
-                invalidSamFiles.add(filePath);
-                try {
-                    cyclicBarrier.await();
-                } catch (InterruptedException | BrokenBarrierException ex) {
-                    ex.printStackTrace();
+            String prefixName = split[split.length - 1];
+            String validateSamLogPath = SOURCE_FILE_PATH + LOG_PATH + getPrefixName(filePath, ".sam") + ".validateSam.log";
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(String.format(shell, filePath, validateSamLogPath), "==== start validate " + prefixName + " ===="), poolExecutor).whenComplete((v, e) -> {
+                if (v != 0) {
+                    System.out.printf("==== %s validate failed ==== %n", prefixName);
+                    System.exit(0);
                 }
-            }
-        }));
+                System.out.printf("==== finish validate %s ==== %n", prefixName);
+                latch.countDown();
+            });
+        }
+        latchWait(latch);
+        System.out.println("====== all sam files validate finished ======");
+        this.samToBam();
     }
 
     private void samToBam() {
         System.out.println("====== start transfer sam to bam  =======");
-        String originShell = "gatk SortSam -I %s -O %s --TMP_DIR %s -SO coordinate";
-        List<String> TransferSamToBamFiles = new ArrayList<>();
+        String originShell = "gatk SortSam -I %s -O %s --TMP_DIR %s -SO coordinate >%s 2>&1 %n";
         AtomicInteger samFileCount = new AtomicInteger();
         List<String> samFileLists = listFilesWithEnd(SOURCE_FILE_PATH + SAM_FILE_PATH, ".sam");
         CountDownLatch latch = new CountDownLatch(samFileLists.size());
@@ -480,44 +467,69 @@ public class AsyncExecJobs {
             if (!filePath.endsWith(".sam")) {
                 System.exit(0);
             }
-            samFileCount.getAndIncrement();
-            String[] split = filePath.substring(0, filePath.length() - ".sam".length()).split("/");
-            String samFileNamePrefix = split[split.length - 1];
-            String bamFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samFileNamePrefix + ".sort.bam";
-            String tmpFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samFileNamePrefix + ".tmp";
-            String shell = String.format(originShell, filePath, bamFilePath, tmpFilePath);
-            CompletableFuture.supplyAsync(() -> {
-                return executeAsyncShell(shell, "==== start transfer " + filePath.split("/")[1] + " to bam ====");
-            }).whenComplete((v, e) -> {
+            samFileCount.getAndIncrement();//Only atomic counting can be used in the forEach loop statement
+            String samPrefixName = getPrefixName(filePath, ".sam");
+            String bamFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samPrefixName + ".sort.bam";
+            String tmpFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samPrefixName + ".tmp";
+            String samToBamLogPath = SOURCE_FILE_PATH + LOG_PATH + samPrefixName + ".samToBam.log";
+            String shell = String.format(originShell, filePath, bamFilePath, tmpFilePath, samToBamLogPath);
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, String.format("==== start transfer %s to bam ====", samPrefixName)), poolExecutor).whenComplete((v, e) -> {
                 if (!Objects.isNull(e) || v != 0) {
-                    TransferSamToBamFiles.add(filePath);
+                    System.out.printf("==== the %s 'sam to bam' failed ==== %n", samPrefixName);
+                    System.exit(0);
                 }
+                System.out.printf("==== the %s 'sam to bam' has transferred ==== %n", samPrefixName);
                 latch.countDown();
             });
         });
+        latchWait(latch);
+        List<String> sortBamLists = listFilesWithEnd(SOURCE_FILE_PATH + BAM_FILE_PATH, "sort.bam");
+        // Verify the number of generated files
+        if (sortBamLists.size() != samFileCount.get()) {
+            System.out.println("======= No. of sam not equals No. of bam =======");
+            System.exit(0);
+        }
+        System.out.println("====== all 'sam to bam' have been converted ======");
+        markDuplicates();
+    }
+
+    private void markDuplicates() {
+        System.out.println("======= start mark_duplicates =======");
+        List<String> bamFileLists = listFilesWithEnd(SOURCE_FILE_PATH + BAM_FILE_PATH, ".sort.bam");
+        String originShell = "gatk MarkDuplicates -I %s -O %s.deduplicated -M %s.deduplicated.metrics >%s 2>&1 %n";
+        CountDownLatch latch = new CountDownLatch(bamFileLists.size());
+        bamFileLists.forEach(filePath -> {
+            String bamPrefixName = getPrefixName(filePath, ".sort.bam");
+            String bamPrefixNamePath = SOURCE_FILE_PATH + DUPLICATED_FILE_PATH + bamPrefixName;
+            String markDuplicatesLogPath = SOURCE_FILE_PATH + LOG_PATH + bamPrefixName + ".duplicate.log";
+            String Shell = String.format(originShell, filePath, bamPrefixNamePath, bamPrefixNamePath, markDuplicatesLogPath);
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(Shell, String.format("==== start markDuplicates %s ====", bamPrefixName)), poolExecutor).whenComplete((v, e) -> {
+                if (v != 0 || !Objects.isNull(e)) {
+                    System.out.printf("%s failed markDuplicates %n", bamPrefixName);
+                }
+                System.out.printf("%s finished markDuplicates %n", bamPrefixName);
+                latch.countDown();
+            });
+        });
+        latchWait(latch);
+        System.out.println("====== all .sort.bam files finished markDuplicates ======");
+    }
+
+    private String getPrefixName(String filePath, String suffix) {
+        String[] split = filePath.substring(0, filePath.length() - suffix.length()).split("/");
+        return split[split.length - 1];
+    }
+
+    private void latchWait(CountDownLatch latch) {
         if (latch.getCount() != 0) {
             try {
-                latch.await();
+                latch.await(); // Block the code after calling the await method
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 System.out.printf("latch await exception:%s %n", e.getMessage());
-            }
-        }
-        {
-            if (TransferSamToBamFiles.size() != 0) {
-                System.out.printf("sorted to bam files failed, list:%s", TransferSamToBamFiles);
                 System.exit(0);
             }
-            // generate file failed
-            List<String> sortBamLists = listFilesWithEnd(SOURCE_FILE_PATH + BAM_FILE_PATH, "sort.bam");
-            // Verify the number of generated files
-            if (sortBamLists.size() != samFileCount.get()) {
-                System.out.println("======= No. of sam not equals No. of bam =======");
-                System.exit(0);
-            }
-            System.out.println("====== sam to bam transfer finished ======");
         }
-
     }
 
     /**
@@ -538,13 +550,13 @@ public class AsyncExecJobs {
             System.out.println(line);
         }
         // process.waitFor()的调用查看执行结果的返回值，当值不为0的时候表示脚本执行出现问题
-        if (process.waitFor() == 0) {
-            return 0;
-        }
-        {
+        if (process.waitFor() != 0) {
             // throw new IOException();
             System.out.printf("'%s' executes shell command failed %n", execTitle);
             return -1;
+        }
+        {
+            return 0;
         }
     }
 
