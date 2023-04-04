@@ -467,7 +467,8 @@ public class AsyncExecJobs {
             if (!filePath.endsWith(".sam")) {
                 System.exit(0);
             }
-            samFileCount.getAndIncrement();//Only atomic counting can be used in the forEach loop statement
+            //Using atomic class cas to solve the counting problem under multi-threading
+            samFileCount.getAndIncrement();
             String samPrefixName = getPrefixName(filePath, ".sam");
             String bamFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samPrefixName + ".sort.bam";
             String tmpFilePath = SOURCE_FILE_PATH + BAM_FILE_PATH + samPrefixName + ".tmp";
