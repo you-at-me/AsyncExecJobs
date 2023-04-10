@@ -35,3 +35,4 @@ build/
 ### other
 HELP.md
 mvnw*
+.mvn/
