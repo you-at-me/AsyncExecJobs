@@ -298,8 +298,7 @@ public class AsyncExecJobs {
                 System.exit(0);
             }
 
-            // test
-            if (parser.sourceFilePath.isPassedIn) {
+            if (parser.sourceFilePath.isPassedIn) { // test
                 // System.out.println(parser.sourceFilePath.value); // 输出对于值的对象
                 // System.out.println("=============");
                 // System.out.println(parser.sourceFilePath.value.getName()); // aa
