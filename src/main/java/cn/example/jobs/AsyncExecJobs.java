@@ -193,14 +193,14 @@ public class AsyncExecJobs {
         static Float MM = 0.2f;
         static Float MF = 0.05f;
         static Long S1 = 100000L;
-        static Long wp1 = 5000L;
-        static Integer wps1 = 2000;
+        static Long WP1 = 5000L;
+        static Integer WPS1 = 2000;
 
         public Builder() {
         }
 
         @SuppressWarnings("all")
-        private Builder(String sourceFilePath, String fastaFilePath, Integer threadNum, String stage, Integer job, Float mm, Float mf) {
+        private Builder(String sourceFilePath, String fastaFilePath, Integer threadNum, String stage, Integer job, Float mm, Float mf, Long s1, Long wp1, Integer wps1) {
             SOURCE_FILE_PATH = sourceFilePath;
             FASTA_FILE_PATH = fastaFilePath;
             THREAD_NUM = threadNum;
@@ -208,6 +208,9 @@ public class AsyncExecJobs {
             JOB = job;
             MM = mm;
             MF = mf;
+            S1 = s1;
+            WP1 = wp1;
+            WPS1 = wps1;
         }
 
         private static AsyncExecJobs.Builder instance() {
