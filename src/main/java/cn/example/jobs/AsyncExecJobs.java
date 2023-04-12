@@ -93,6 +93,7 @@ public class AsyncExecJobs {
         private final CommandOption<Float> mf;
         private final CommandOption<Long> s1;
         private final CommandOption<Long> wp1;
+        private final CommandOption<Integer> wps1;
 
         AsyncJobsCommandParser(String... args) {
             this.options = PARSER.parse(args);
@@ -106,6 +107,7 @@ public class AsyncExecJobs {
             this.mf = new CommandOption<>("--mf", this.options);
             this.s1 = new CommandOption<>("--s1", this.options);
             this.wp1 = new CommandOption<>("--wp1", this.options);
+            this.wps1 = new CommandOption<>("--wps1", this.options);
         }
 
         private static AsyncJobsCommandParser parse(String... args) {
