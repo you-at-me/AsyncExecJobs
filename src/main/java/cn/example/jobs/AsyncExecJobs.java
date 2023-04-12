@@ -298,7 +298,8 @@ public class AsyncExecJobs {
                 System.exit(0);
             }
 
-            if (parser.sourceFilePath.isPassedIn) { // test
+            // test
+            if (parser.sourceFilePath.isPassedIn) {
                 // System.out.println(parser.sourceFilePath.value); // 输出对于值的对象
                 // System.out.println("=============");
                 // System.out.println(parser.sourceFilePath.value.getName()); // aa
@@ -506,6 +507,7 @@ public class AsyncExecJobs {
             CompletableFuture.supplyAsync(() -> executeAsyncShell(Shell, String.format("==== start markDuplicates %s ====", bamPrefixName)), poolExecutor).whenComplete((v, e) -> {
                 if (v != 0 || !Objects.isNull(e)) {
                     System.out.printf("%s failed markDuplicates %n", bamPrefixName);
+                    System.exit(0);
                 }
                 System.out.printf("%s finished markDuplicates %n", bamPrefixName);
                 latch.countDown();
@@ -513,6 +515,48 @@ public class AsyncExecJobs {
         });
         latchWait(latch);
         System.out.println("====== all .sort.bam files finished markDuplicates ======");
+        createDeduplicatedFaIndex();
+    }
+
+    private void createDeduplicatedFaIndex() {
+        System.out.println("======= start create_deduplicated_fa_index =======");
+        List<String> deduplicatedLists = listFilesWithEnd(SOURCE_FILE_PATH + DUPLICATED_FILE_PATH, ".deduplicated");
+        String deduplicatedIndex = "samtools index %s %n";
+        CountDownLatch latch = new CountDownLatch(deduplicatedLists.size() + 2);
+        deduplicatedLists.forEach(filePath -> {
+            String fileName = getPrefixName(filePath, "");
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(String.format(deduplicatedIndex, filePath), String.format("==== start create %s index ====", fileName)), poolExecutor).whenComplete((v, e) -> {
+                if (v != 0 || !Objects.isNull(e)) {
+                    System.out.printf("%s failed create_deduplicated_index %n", fileName);
+                    System.exit(0);
+                }
+                System.out.printf("%s finished been created %n", fileName);
+                latch.countDown();
+            });
+        });
+        
+        String faidxIndex = String.format("samtools faidx %s", FASTA_FILE_PATH);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(faidxIndex, "==== start create_faidx_index ===="), poolExecutor).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed create_faidx_index");
+                System.exit(0);
+            }
+            System.out.println("finished create_faidx_index");
+            latch.countDown();
+        });
+
+        String createSequenceDictionary = SOURCE_FILE_PATH + LOG_PATH + "CreateSequenceDictionary.log";
+        String sdShell = String.format("gatk CreateSequenceDictionary -R %s >%s 2>&1", FASTA_FILE_PATH, createSequenceDictionary);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(sdShell, "==== start create_sequence_dictionary ===="), poolExecutor).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed create_sequence_dictionary");
+                System.exit(0);
+            }
+            System.out.println("finished create_sequence_dictionary");
+            latch.countDown();
+        });
+        latchWait(latch);
+        System.out.println("====== all deduplicated index and faidx index finished ! ======");
     }
 
     private String getPrefixName(String filePath, String suffix) {
