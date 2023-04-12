@@ -759,14 +759,14 @@ public class AsyncExecJobs {
 
     private void first() {
         init();
-        // createFaIndex();
-        //
-        // validateSam();
-        // samToBam();
-        // markDuplicates();
-        // createBaiIndex();
-        // generateGvcfFiles();
-        // mergeGvcfFiles();
+        createFaIndex();
+
+        validateSam();
+        samToBam();
+        markDuplicates();
+        createBaiIndex();
+        generateGvcfFiles();
+        mergeGvcfFiles();
 
     }
 
