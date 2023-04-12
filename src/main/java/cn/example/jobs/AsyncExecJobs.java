@@ -144,6 +144,7 @@ public class AsyncExecJobs {
         /**
          * Get CommandOptions
          */
+        @Deprecated
         private CommandOptions getOptions() {
             return this.options;
         }
@@ -301,6 +302,7 @@ public class AsyncExecJobs {
     /**
      * 为{@link java.util.logging.Logger}自定义输出日志格式信息到指定的文件当中，这种方法仅限于将格式的日志信息打印到文本，却不能打印到控制台，控制台使用的依旧是原始的日志格式信息
      */
+    @Deprecated
     private void formatLogToFile() {
         FileHandler fileHandler = null;
         try {
@@ -378,7 +380,7 @@ public class AsyncExecJobs {
         for (String fileDir : fileDirPath) {
             File file = new File(fileDir);
             if (!file.exists()) {
-                boolean mkdir = file.mkdir();
+                file.mkdir();
                 System.out.printf("=====the %s is not exist, already created %n", fileDir);
             }
         }
@@ -602,7 +604,7 @@ public class AsyncExecJobs {
 
     private void mergeGvcfFiles() {
         List<String> gvcfLists = listFilesWithEnd(SOURCE_FILE_PATH + GVCF_FILE_PATH, ".gvcf");
-        if (gvcfLists.size() > 100) {
+        if (gvcfLists.size() > SAMPLE_THRESHOLD) {
             System.out.println("too many files");
             System.exit(0);
         }
