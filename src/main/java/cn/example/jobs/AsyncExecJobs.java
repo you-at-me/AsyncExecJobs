@@ -47,7 +47,7 @@ public class AsyncExecJobs {
     /**
      * 样本数量阈值，超过该值为大量样本
      */
-    private final Integer SAMPLE_THRESHOLD = 100;
+    private final short SAMPLE_THRESHOLD = 100;
 
     /**
      * 最终聚合的gvcf 文件
