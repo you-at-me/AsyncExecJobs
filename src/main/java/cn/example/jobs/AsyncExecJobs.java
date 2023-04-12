@@ -355,7 +355,7 @@ public class AsyncExecJobs {
                 // System.out.println(AsyncJobsCommandParser.getOptionsByParseArgs(args));
             }
 
-            Builder.instance().setSourceFilePath(parser.sourceFilePath.value.getCanonicalPath()).setFastaFilePath(parser.fastsFilePath.value.getCanonicalPath()).setThreadNum(parser.threadNum.value).setStage(parser.stage.value).setJob(parser.job.value).setMm(parser.mm.value).setMf(parser.mf.value);
+            Builder.instance().setSourceFilePath(parser.sourceFilePath.value.getCanonicalPath()).setFastaFilePath(parser.fastsFilePath.value.getCanonicalPath()).setThreadNum(parser.threadNum.value).setStage(parser.stage.value).setJob(parser.job.value).setMm(parser.mm.value).setMf(parser.mf.value).setWps1(parser.wps1.value);
 
         } catch (Exception | Error e) {
             e.printStackTrace();
