@@ -174,7 +174,7 @@ public class AsyncExecJobs {
             group.register(FILE.VALUE, "-fasta-file-path", "--fasta").defaultTo(FASTA_FILE_PATH);
             group.register(INTEGER.VALUE, "-N", "--n1").defaultTo(8).setDescription("times of bootstraps, default=8");
             group.register(LONG.VALUE, "-s", "--s1").defaultTo(100000).setDescription("the window size of snp density, default=10w");
-            group.register(LONG.VALUE, "-window-pi", "--wp1").defaultTo(50000).setDescription("the window size of Pi/Fst/xp-clr, default=5000");
+            group.register(LONG.VALUE, "-window-pi", "--wp1").defaultTo(5000).setDescription("the window size of Pi/Fst/xp-clr, default=5000");
             group.register(INTEGER.VALUE, "-window-pi-step", "--wps1").defaultTo(2000).setDescription("the window step of Pi/Fst/xp-clr, default=2000");
             group.register(FLOAT.VALUE, "-MF", "--mf").defaultTo(0.05).setDescription("the Minor Allele Frequency to filter snp, default=0.05");
             // 染色体例子 2,3,8,24
@@ -192,6 +192,9 @@ public class AsyncExecJobs {
         static Integer JOB = 8;
         static Float MM = 0.2f;
         static Float MF = 0.05f;
+        static Long S1 = 100000L;
+        static Long wp1 = 5000L;
+        static Integer wps1 = 2000;
 
         public Builder() {
         }
