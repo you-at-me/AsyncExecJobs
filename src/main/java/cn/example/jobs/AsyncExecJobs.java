@@ -635,13 +635,13 @@ public class AsyncExecJobs {
             System.out.println("finished merge gvcf file");
             System.out.println("======= all gvcf to vcf files have been transferred ! =======");
             System.out.println("======= the first step over ！！！ =======");
-            stepOne();
+            // stepOne();
         });
     }
 
     private void stepOne() {
         System.out.println("======= the second step is running ！ =======");
-        String shell = "gatk SelectVariants -V " + ALL_RAW_CVF_PATH + " -select-type SNP -O " + ALL_RAW_SNP_VCF_PATH + " %n";
+        String shell = String.format("gatk SelectVariants -V %s -select-type SNP -O %s %n", ALL_RAW_CVF_PATH, ALL_RAW_SNP_VCF_PATH);
         CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_raw_snp.vcf ====="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
                 System.out.println("failed generate all_raw_snp.vcf");
@@ -764,12 +764,12 @@ public class AsyncExecJobs {
         // markDuplicates();
         // createBaiIndex();
         // generateGvcfFiles();
-        mergeGvcfFiles();
+        // mergeGvcfFiles();
 
     }
 
     private void second() {
-        // stepOne();
+        stepOne();
 
     }
 
