@@ -254,6 +254,11 @@ public class AsyncExecJobs {
             MF = Objects.isNull(mf) ? MF : mf;
             return this;
         }
+
+        private AsyncExecJobs.Builder setWps1(Integer wps1) {
+            WPS1 = Objects.isNull(wps1) ? WPS1 : wps1;
+            return this;
+        }
     }
 
     /**
