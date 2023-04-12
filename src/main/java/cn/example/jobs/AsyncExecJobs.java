@@ -400,7 +400,6 @@ public class AsyncExecJobs {
         });
         if (invalidFqgzFiles.size() > 0) {
             System.out.printf("file pattern check failed, check:%s %n", invalidFqgzFiles);
-            // 程序正常退出
             System.exit(0);
         }
     }
@@ -608,33 +607,36 @@ public class AsyncExecJobs {
             System.out.println("too many files");
             System.exit(0);
         }
-        StringBuilder shell = new StringBuilder(String.format("gatk CombineGVCFs -R %s", FASTA_FILE_PATH));
+        StringBuilder shellBuilder = new StringBuilder(String.format("gatk CombineGVCFs -R %s", FASTA_FILE_PATH));
         for (String filePath : gvcfLists) {
-            shell.append(String.format(" -V %s", filePath));
+            shellBuilder.append(String.format(" -V %s", filePath));
         }
-        shell.append(" -O ").append(ALL_COMBINED_GVCF).append(" %n");
-        CompletableFuture.supplyAsync(() -> executeAsyncShell(String.valueOf(shell), "==== start merge gvcf files ====")).whenComplete((v, e) -> {
+        String shell = shellBuilder.toString();
+        shell = String.format(shell + " -O " + ALL_COMBINED_GVCF + " %n");
+        String finalShell = shell;
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(finalShell, "==== start merge gvcf files ===="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
                 System.out.println("failed merge gvcf file");
                 System.exit(0);
             }
             System.out.println("finished merge gvcf file");
+            System.out.println("======= all gvcf files have been merged ! =======");
             gvcfToVcf();
         });
-        System.out.println("======= all gvcf files have been merged ! =======");
     }
 
     private void gvcfToVcf() {
-        String shell = String.format("gatk GenotypeGVCFs -R %s -V %s -O %s", FASTA_FILE_PATH, ALL_COMBINED_GVCF, ALL_RAW_CVF_PATH);
-        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "==== start transfer gvcf to vcf files ====")).whenComplete((v, e) -> {
+        String shell = String.format("gatk GenotypeGVCFs -R %s -V %s -O %s %n", FASTA_FILE_PATH, ALL_COMBINED_GVCF, ALL_RAW_CVF_PATH);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "==== start transfer gvcf to vcf files ===="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
                 System.out.println("failed merge gvcf file");
                 System.exit(0);
             }
             System.out.println("finished merge gvcf file");
+            System.out.println("======= all gvcf to vcf files have been transferred ! =======");
+            System.out.println("======= the first step over ！！！ =======");
+            stepOne();
         });
-        System.out.println("======= all gvcf to vcf files have been transferred ! =======");
-        System.out.println("======= the first step over ！！！ =======");
     }
 
     private void stepOne() {
@@ -755,19 +757,19 @@ public class AsyncExecJobs {
 
     private void first() {
         init();
-        createFaIndex();
-
-        validateSam();
-        samToBam();
-        markDuplicates();
-        createBaiIndex();
-        generateGvcfFiles();
+        // createFaIndex();
+        //
+        // validateSam();
+        // samToBam();
+        // markDuplicates();
+        // createBaiIndex();
+        // generateGvcfFiles();
         mergeGvcfFiles();
 
     }
 
     private void second() {
-        stepOne();
+        // stepOne();
 
     }
 
