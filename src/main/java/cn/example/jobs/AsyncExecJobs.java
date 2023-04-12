@@ -239,7 +239,6 @@ public class AsyncExecJobs {
             return this;
         }
 
-        @SuppressWarnings("all")
         private AsyncExecJobs.Builder setJob(Integer job) {
             JOB = Objects.isNull(job) ? JOB : job;
             return this;
@@ -255,6 +254,7 @@ public class AsyncExecJobs {
             return this;
         }
 
+        @SuppressWarnings("all")
         private AsyncExecJobs.Builder setWps1(Integer wps1) {
             WPS1 = Objects.isNull(wps1) ? WPS1 : wps1;
             return this;
