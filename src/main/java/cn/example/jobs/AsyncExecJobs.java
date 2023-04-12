@@ -52,7 +52,11 @@ public class AsyncExecJobs {
     /**
      * 最终聚合的gvcf 文件
      */
-    private final String ALL_COMBINED_GVCF = "all_combined.gvcf";
+    private final String ALL_COMBINED_GVCF = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_combined.gvcf";
+    private final String ALL_RAW_CVF_PATH = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_raw.vcf";
+    private final String ALL_RAW_SNP_VCF_PATH = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_raw_snp.vcf";
+    private final String ALL_RAW_SNP_HFA_PATH = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_raw_snp_hardfiltereannotated.vcf";
+    private final String ALL_RAW_SNP_HF_PATH = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_raw_snp_hardfiltered.vcf";
 
     /**
      * 目录集合列表
@@ -85,6 +89,8 @@ public class AsyncExecJobs {
         private final CommandOption<String> stage;
         private final CommandOption<Integer> threadNum;
         private final CommandOption<Integer> job;
+        private final CommandOption<Float> mm;
+        private final CommandOption<Float> mf;
 
         AsyncJobsCommandParser(String... args) {
             this.options = PARSER.parse(args);
@@ -94,6 +100,8 @@ public class AsyncExecJobs {
             this.stage = new CommandOption<>("--stage", this.options);
             this.threadNum = new CommandOption<>("--threadnum", this.options);
             this.job = new CommandOption<>("--job", this.options);
+            this.mm = new CommandOption<>("--mm", this.options);
+            this.mf = new CommandOption<>("--mf", this.options);
         }
 
         private static AsyncJobsCommandParser parse(String... args) {
@@ -176,17 +184,21 @@ public class AsyncExecJobs {
         static Integer THREAD_NUM = 4;
         static String STAGE = "ALL";
         static Integer JOB = 8;
+        static Float MM = 0.2f;
+        static Float MF = 0.05f;
 
         public Builder() {
         }
 
         @SuppressWarnings("all")
-        private Builder(String sourceFilePath, String fastaFilePath, Integer threadNum, String stage, Integer job) {
+        private Builder(String sourceFilePath, String fastaFilePath, Integer threadNum, String stage, Integer job, Float mm, Float mf) {
             SOURCE_FILE_PATH = sourceFilePath;
             FASTA_FILE_PATH = fastaFilePath;
             THREAD_NUM = threadNum;
-            Builder.STAGE = stage;
-            Builder.JOB = job;
+            STAGE = stage;
+            JOB = job;
+            MM = mm;
+            MF = mf;
         }
 
         private static AsyncExecJobs.Builder instance() {
@@ -218,6 +230,16 @@ public class AsyncExecJobs {
         @SuppressWarnings("all")
         private AsyncExecJobs.Builder setJob(Integer job) {
             JOB = Objects.isNull(job) ? JOB : job;
+            return this;
+        }
+
+        private AsyncExecJobs.Builder setMm(Float mm) {
+            MM = Objects.isNull(mm) ? MM : mm;
+            return this;
+        }
+
+        private AsyncExecJobs.Builder setMf(Float mf) {
+            MF = Objects.isNull(mf) ? MF : mf;
             return this;
         }
     }
@@ -316,7 +338,7 @@ public class AsyncExecJobs {
                 // System.out.println(AsyncJobsCommandParser.getOptionsByParseArgs(args));
             }
 
-            Builder.instance().setSourceFilePath(parser.sourceFilePath.value.getCanonicalPath()).setFastaFilePath(parser.fastsFilePath.value.getCanonicalPath()).setThreadNum(parser.threadNum.value).setStage(parser.stage.value).setJob(parser.job.value);
+            Builder.instance().setSourceFilePath(parser.sourceFilePath.value.getCanonicalPath()).setFastaFilePath(parser.fastsFilePath.value.getCanonicalPath()).setThreadNum(parser.threadNum.value).setStage(parser.stage.value).setJob(parser.job.value).setMm(parser.mm.value).setMf(parser.mf.value);
 
         } catch (Exception | Error e) {
             e.printStackTrace();
@@ -362,27 +384,6 @@ public class AsyncExecJobs {
             // 程序正常退出
             System.exit(0);
         }
-    }
-
-    /**
-     * 返回对应文件夹路径path下以end_with结尾的文件集合列表
-     */
-    private List<String> listFilesWithEnd(String path, String endWith) {
-        File dirObj = new File(path);
-        if (!dirObj.isDirectory()) {
-            System.out.printf("listFilesWithEnd is empty, %s is not a directory %n", path);
-            System.exit(0);
-        }
-        System.out.printf("==== start list files, path:%s, endWith : %s ==== %n", path, endWith);
-        List<String> conformFileLists = new ArrayList<>();
-        for (File file : Objects.requireNonNull(dirObj.listFiles())) {
-            String filePath = file.getAbsolutePath();
-            if (filePath.endsWith(endWith)) {
-                conformFileLists.add(filePath);
-            }
-        }
-        System.out.printf("==== listFilesWithEnd : %s %n%n", conformFileLists);
-        return conformFileLists;
     }
 
     private void createFaIndex() {
@@ -431,7 +432,6 @@ public class AsyncExecJobs {
         });
         latchWait(latch);
         System.out.println(("========= transfer all fq.gz to sam finished! ========="));
-        this.validateSam();
     }
 
     private void validateSam() {
@@ -454,7 +454,6 @@ public class AsyncExecJobs {
         }
         latchWait(latch);
         System.out.println("====== all sam files validate finished ======");
-        this.samToBam();
     }
 
     private void samToBam() {
@@ -491,11 +490,10 @@ public class AsyncExecJobs {
             System.exit(0);
         }
         System.out.println("====== all 'sam to bam' have been converted ======");
-        markDuplicates();
     }
 
     private void markDuplicates() {
-        System.out.println("======= start mark_duplicates =======");
+        System.out.println("======= start mark duplicates =======");
         List<String> bamFileLists = listFilesWithEnd(SOURCE_FILE_PATH + BAM_FILE_PATH, ".sort.bam");
         String originShell = "gatk MarkDuplicates -I %s -O %s.deduplicated -M %s.deduplicated.metrics >%s 2>&1 %n";
         CountDownLatch latch = new CountDownLatch(bamFileLists.size());
@@ -515,49 +513,160 @@ public class AsyncExecJobs {
         });
         latchWait(latch);
         System.out.println("====== all .sort.bam files finished markDuplicates ======");
-        createDeduplicatedFaIndex();
     }
 
-    private void createDeduplicatedFaIndex() {
-        System.out.println("======= start create_deduplicated_fa_index =======");
+    private void createBaiIndex() {
+        System.out.println("======= start create deduplicated and fa index =======");
         List<String> deduplicatedLists = listFilesWithEnd(SOURCE_FILE_PATH + DUPLICATED_FILE_PATH, ".deduplicated");
         String deduplicatedIndex = "samtools index %s %n";
         CountDownLatch latch = new CountDownLatch(deduplicatedLists.size() + 2);
         deduplicatedLists.forEach(filePath -> {
-            String fileName = getPrefixName(filePath, "");
-            CompletableFuture.supplyAsync(() -> executeAsyncShell(String.format(deduplicatedIndex, filePath), String.format("==== start create %s index ====", fileName)), poolExecutor).whenComplete((v, e) -> {
+            String filePrefixName = getPrefixName(filePath, "");
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(String.format(deduplicatedIndex, filePath), String.format("==== start create %s index ====", filePrefixName)), poolExecutor).whenComplete((v, e) -> {
                 if (v != 0 || !Objects.isNull(e)) {
-                    System.out.printf("%s failed create_deduplicated_index %n", fileName);
+                    System.out.printf("failed %s index %n", filePrefixName);
                     System.exit(0);
                 }
-                System.out.printf("%s finished been created %n", fileName);
+                System.out.printf("finished %s index %n", filePrefixName);
                 latch.countDown();
             });
         });
-        
-        String faidxIndex = String.format("samtools faidx %s", FASTA_FILE_PATH);
-        CompletableFuture.supplyAsync(() -> executeAsyncShell(faidxIndex, "==== start create_faidx_index ===="), poolExecutor).whenComplete((v, e) -> {
+        createDicAndFaiIndex(latch);
+        System.out.println("====== all deduplicated index and fa index finished ! ======");
+    }
+
+    private void createDicAndFaiIndex(CountDownLatch latch) {
+        /* 以下是针对fa文件进行.dic和.fai索引文件的构建，速度很快 */
+        String faidxIndex = String.format("samtools faidx %s %n", FASTA_FILE_PATH);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(faidxIndex, "==== start create faidx index ===="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
-                System.out.println("failed create_faidx_index");
+                System.out.println("failed create faidx index");
                 System.exit(0);
             }
-            System.out.println("finished create_faidx_index");
+            System.out.println("finished create faidx index");
             latch.countDown();
         });
 
         String createSequenceDictionary = SOURCE_FILE_PATH + LOG_PATH + "CreateSequenceDictionary.log";
-        String sdShell = String.format("gatk CreateSequenceDictionary -R %s >%s 2>&1", FASTA_FILE_PATH, createSequenceDictionary);
-        CompletableFuture.supplyAsync(() -> executeAsyncShell(sdShell, "==== start create_sequence_dictionary ===="), poolExecutor).whenComplete((v, e) -> {
+        String dicShell = String.format("gatk CreateSequenceDictionary -R %s >%s 2>&1 %n", FASTA_FILE_PATH, createSequenceDictionary);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(dicShell, "==== start create sequence dictionary index ===="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
-                System.out.println("failed create_sequence_dictionary");
+                System.out.println("failed create sequence dictionary index");
                 System.exit(0);
             }
-            System.out.println("finished create_sequence_dictionary");
+            System.out.println("finished create sequence dictionary index");
             latch.countDown();
         });
         latchWait(latch);
-        System.out.println("====== all deduplicated index and faidx index finished ! ======");
     }
+
+    private void generateGvcfFiles() {
+        System.out.println("======= start generate gvcf files =======");
+        List<String> deduplicatedLists = listFilesWithEnd(SOURCE_FILE_PATH + DUPLICATED_FILE_PATH, ".deduplicated");
+        String shell = "gatk HaplotypeCaller --pcr-indel-model CONSERVATIVE -ERC GVCF -R %s -I %s -O %s >%s 2>&1 %n";
+        CountDownLatch latch = new CountDownLatch(deduplicatedLists.size());
+        deduplicatedLists.forEach(filePath -> {
+            String prefixName = getPrefixName(filePath, ".deduplicated");
+            String gvcfFilepath = SOURCE_FILE_PATH + GVCF_FILE_PATH + prefixName + ".gvcf";
+            String gvcfLogPath = SOURCE_FILE_PATH + LOG_PATH + prefixName + ".gvcf.log";
+            String gvcfShell = String.format(shell, FASTA_FILE_PATH, filePath, gvcfFilepath, gvcfLogPath);
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(gvcfShell, String.format("==== start generate %s gvcf file ====", prefixName)), poolExecutor).whenComplete((v, e) -> {
+                if (v != 0 || !Objects.isNull(e)) {
+                    System.out.printf("failed generate %s gvcf file %n", prefixName);
+                    System.exit(0);
+                }
+                System.out.printf("finished generate %s gvcf file %n", prefixName);
+                latch.countDown();
+            });
+        });
+        latchWait(latch);
+        System.out.println("======= all gvcf files have been generated ! =======");
+    }
+
+    private void mergeGvcfFiles() {
+        List<String> gvcfLists = listFilesWithEnd(SOURCE_FILE_PATH + GVCF_FILE_PATH, ".gvcf");
+        if (gvcfLists.size() > 100) {
+            System.out.println("too many files");
+            System.exit(0);
+        }
+        StringBuilder shell = new StringBuilder(String.format("gatk CombineGVCFs -R %s", FASTA_FILE_PATH));
+        for (String filePath : gvcfLists) {
+            shell.append(String.format(" -V %s", filePath));
+        }
+        shell.append(" -O ").append(ALL_COMBINED_GVCF).append(" %n");
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(String.valueOf(shell), "==== start merge gvcf files ====")).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed merge gvcf file");
+                System.exit(0);
+            }
+            System.out.println("finished merge gvcf file");
+            gvcfToVcf();
+        });
+        System.out.println("======= all gvcf files have been merged ! =======");
+    }
+
+    private void gvcfToVcf() {
+        String shell = String.format("gatk GenotypeGVCFs -R %s -V %s -O %s", FASTA_FILE_PATH, ALL_COMBINED_GVCF, ALL_RAW_CVF_PATH);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "==== start transfer gvcf to vcf files ====")).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed merge gvcf file");
+                System.exit(0);
+            }
+            System.out.println("finished merge gvcf file");
+        });
+        System.out.println("======= all gvcf to vcf files have been transferred ! =======");
+        System.out.println("======= the first step over ！！！ =======");
+    }
+
+    private void stepOne() {
+        System.out.println("======= the second step is running ！ =======");
+        String shell = "gatk SelectVariants -V " + ALL_RAW_CVF_PATH + " -select-type SNP -O " + ALL_RAW_SNP_VCF_PATH + " %n";
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_raw_snp.vcf ====="), poolExecutor).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed generate all_raw_snp.vcf");
+                System.exit(0);
+            }
+            System.out.println("finished generate all_raw_snp.vcf");
+            stepTwo();
+        });
+    }
+
+    private void stepTwo() {
+        String shell = String.format("gatk VariantFiltration -V %s -filter 'QD < 2.0' --filter-name 'QD2' -filter 'MQ < 40.0' --filter-name 'MQ40' -filter 'MQRankSum < -12.5' --filter-name 'MQRankSum-12.5' -filter 'ReadPosRankSum < -8.0' --filter-name 'ReadPosRankSum-8' -O %s %n", ALL_RAW_SNP_VCF_PATH, ALL_RAW_SNP_HFA_PATH);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_raw_snp_hardfiltereannotated.vcf ====="), poolExecutor).whenComplete((v, e) -> {
+            if (v != 0 || !Objects.isNull(e)) {
+                System.out.println("failed generate all_raw_snp_hardfiltereannotated.vcf");
+                System.exit(0);
+            }
+            System.out.println("finished generate all_raw_snp_hardfiltereannotated.vcf");
+
+            String hardFilteredLogPath = SOURCE_FILE_PATH + LOG_PATH + "all_raw_snp_hardfiltered.vcf.log";
+            String shell2 = String.format("gatk SelectVariants --exclude-filtered true -V %s -O %s >%s 2>&1 %n", ALL_RAW_SNP_HFA_PATH, ALL_RAW_SNP_HF_PATH, hardFilteredLogPath);
+            CompletableFuture.supplyAsync(() -> executeAsyncShell(shell2, "===== start generate all_raw_snp_hardfiltered.vcf ====="), poolExecutor).whenComplete((x, y) -> {
+                if (x != 0 || !Objects.isNull(y)) {
+                    System.out.println("failed generate all_raw_snp_hardfiltered.vcf");
+                    System.exit(0);
+                }
+                System.out.println("finished generate all_raw_snp_hardfiltered.vcf");
+                stepThree();
+            });
+        });
+    }
+
+    private void stepThree() {
+        String ALL_SNP_VCF_PATH = SOURCE_FILE_PATH + GVCF_FILE_PATH + "all_snp.vcf";
+        String softFilterLogPath = SOURCE_FILE_PATH + LOG_PATH + "all_snp.softfilter.log";
+        String shell = String.format("vcftools --vcf %s --max-missing %s --maf %s --mac 3 --recode --recode-INFO-all --out %s >%s 2>&1 %n", ALL_RAW_SNP_HF_PATH, MM, MF, ALL_SNP_VCF_PATH, softFilterLogPath);
+        CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_snp.vcf ====="), poolExecutor).whenComplete((x, y) -> {
+            if (x != 0 || !Objects.isNull(y)) {
+                System.out.println("failed generate all_snp.vcf");
+                System.exit(0);
+            }
+            System.out.println("finished generate all_snp.vcf");
+            System.out.println("======= the second step over ！！！ =======");
+        });
+    }
+
 
     private String getPrefixName(String filePath, String suffix) {
         String[] split = filePath.substring(0, filePath.length() - suffix.length()).split("/");
@@ -574,6 +683,27 @@ public class AsyncExecJobs {
                 System.exit(0);
             }
         }
+    }
+
+    /**
+     * 返回对应文件夹路径path下以end_with结尾的文件集合列表
+     */
+    private List<String> listFilesWithEnd(String path, String endWith) {
+        File dirObj = new File(path);
+        if (!dirObj.isDirectory()) {
+            System.out.printf("listFilesWithEnd is empty, %s is not a directory %n", path);
+            System.exit(0);
+        }
+        System.out.printf("==== start list files, path:%s, endWith : %s ==== %n", path, endWith);
+        List<String> conformFileLists = new ArrayList<>();
+        for (File file : Objects.requireNonNull(dirObj.listFiles())) {
+            String filePath = file.getAbsolutePath();
+            if (filePath.endsWith(endWith)) {
+                conformFileLists.add(filePath);
+            }
+        }
+        System.out.printf("==== listFilesWithEnd : %s %n%n", conformFileLists);
+        return conformFileLists;
     }
 
     /**
@@ -607,6 +737,19 @@ public class AsyncExecJobs {
     private void first() {
         init();
         createFaIndex();
+
+        validateSam();
+        samToBam();
+        markDuplicates();
+        createBaiIndex();
+        generateGvcfFiles();
+        mergeGvcfFiles();
+
+    }
+
+    private void second() {
+        stepOne();
+
     }
 
     public void test(String[] args) {
@@ -616,10 +759,10 @@ public class AsyncExecJobs {
 
         if (Objects.equals(STAGE, "ALL")) {
             first();
+            second();
         } else {
             logger.info("error choice");
         }
     }
-
 
 }
