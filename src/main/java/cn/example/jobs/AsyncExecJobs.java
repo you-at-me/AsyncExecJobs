@@ -641,7 +641,8 @@ public class AsyncExecJobs {
 
     private void stepOne() {
         System.out.println("======= the second step is running ！ =======");
-        String shell = String.format("gatk SelectVariants -V %s -select-type SNP -O %s %n", ALL_RAW_CVF_PATH, ALL_RAW_SNP_VCF_PATH);
+        String allRawSnpLogPath = SOURCE_FILE_PATH + LOG_PATH + "all_raw_snp.vcf.log";
+        String shell = String.format("gatk SelectVariants -V %s -select-type SNP -O %s >%s 2>&1 %n", ALL_RAW_CVF_PATH, ALL_RAW_SNP_VCF_PATH, allRawSnpLogPath);
         CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_raw_snp.vcf ====="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
                 System.out.println("failed generate all_raw_snp.vcf");
@@ -653,7 +654,8 @@ public class AsyncExecJobs {
     }
 
     private void stepTwo() {
-        String shell = String.format("gatk VariantFiltration -V %s -filter 'QD < 2.0' --filter-name 'QD2' -filter 'MQ < 40.0' --filter-name 'MQ40' -filter 'MQRankSum < -12.5' --filter-name 'MQRankSum-12.5' -filter 'ReadPosRankSum < -8.0' --filter-name 'ReadPosRankSum-8' -O %s %n", ALL_RAW_SNP_VCF_PATH, ALL_RAW_SNP_HFA_PATH);
+        String hardFilteredEAnnotatedLogPath = SOURCE_FILE_PATH + LOG_PATH + "all_raw_snp_hardfiltereannotated.vcf.log";
+        String shell = String.format("gatk VariantFiltration -V %s -filter 'QD < 2.0' --filter-name 'QD2' -filter 'MQ < 40.0' --filter-name 'MQ40' -filter 'MQRankSum < -12.5' --filter-name 'MQRankSum-12.5' -filter 'ReadPosRankSum < -8.0' --filter-name 'ReadPosRankSum-8' -O %s >%s 2>&1 %n", ALL_RAW_SNP_VCF_PATH, ALL_RAW_SNP_HFA_PATH, hardFilteredEAnnotatedLogPath);
         CompletableFuture.supplyAsync(() -> executeAsyncShell(shell, "===== start generate all_raw_snp_hardfiltereannotated.vcf ====="), poolExecutor).whenComplete((v, e) -> {
             if (v != 0 || !Objects.isNull(e)) {
                 System.out.println("failed generate all_raw_snp_hardfiltereannotated.vcf");
