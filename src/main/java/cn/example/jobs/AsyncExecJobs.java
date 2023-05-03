@@ -769,7 +769,6 @@ public class AsyncExecJobs {
         createBaiIndex();
         generateGvcfFiles();
         mergeGvcfFiles();
-
     }
 
     private void second() {
