@@ -72,8 +72,17 @@ public class AsyncExecJobs {
             6, // 临时线程的存活时间数
             TimeUnit.SECONDS,  // 临时线程的存活时间单位
             blockingQueue, // 线程任务等待的阻塞队列，设置多少个阻塞的线程数量，等待执行的线程任务就只能最多是多少个，超过的线程数将被通过下述策略去处理那些超过的线程任务。
-            Executors.defaultThreadFactory(),  // 创建线程的工厂类型，一般走默认就行
-            new ThreadPoolExecutor.CallerRunsPolicy() // 当线程提交的任务超过了线程池的最大线程数和阻塞队列等待的线程数总和时，该是以何种策略去处理这些线程。一个可选择的策略有四种，这里设置的那些超过的线程任务替换掉等待时间最长的那个线程任务
+            // Executors.defaultThreadFactory(),  // 创建线程的工厂类型，一般走默认就行，如果希望改名字也可自定义
+            r -> {
+                SecurityManager s = System.getSecurityManager();
+                ThreadGroup group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+                String namePrefix = "prefix-thread-pool" + new AtomicInteger(1).getAndIncrement() + "-thread-";
+                Thread t = new Thread(group, r, namePrefix +  new AtomicInteger(1).getAndIncrement(), 0);
+                if (t.isDaemon()) t.setDaemon(false);
+                if (t.getPriority() != Thread.NORM_PRIORITY) t.setPriority(Thread.NORM_PRIORITY);
+                return t;
+            },
+            new ThreadPoolExecutor.DiscardOldestPolicy() // 当线程提交的任务超过了线程池的最大线程数和阻塞队列等待的线程数总和时，该是以何种策略去处理这些线程。一共可选择的策略有四种，这里设置的是把这个被拒绝的任务替换掉在阻塞队列中等待时间最长的那个线程任务，然后由线程池重试execute执行这个任务，如果这个时候核心线程和临时线程仍在忙碌，则就走线程池的那一套执行流程，也就是放入到阻塞队列当中。一般不太建议使用的是：CallerRunsPolicy执行策略，因为这种策略在对待被拒绝的任务是，直接在调用execute方法的线程中运行(run)这个被拒绝的任务，而一般情况下我们都是在主线程在通过线程池执行这个任务的，所以被拒绝的任务最终会被主线程执行，如果这个任务执行很慢，会严重影响到整个程序的执行性能。
     );
 
     {
