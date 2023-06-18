@@ -27,8 +27,9 @@ import static edu.sysu.pmglab.commandParser.CommandItem.HIDDEN;
  */
 public class AsyncExecJobs {
 
-    // private static final Logger logger = LoggerFactory.getLogger(AsyncExecJobs.class);SimpleConsoleFormatter
+    // private static final com.sun.org.slf4j.internal.Logger log = LoggerFactory.getLogger(AsyncExecJobs.class);
     // private static final Logger logger = Logger.getLogger("cn.example.jobs.AsyncExecJobs");
+
     private final Logger logger = SimpleConsoleFormatter.installFormatter(Logger.getLogger(AsyncExecJobs.class.getSimpleName()));
 
     private final String SAM_FILE_PATH = "/sam/";
@@ -751,7 +752,7 @@ public class AsyncExecJobs {
         // process.waitFor()的调用查看执行结果的返回值，当值不为0的时候表示脚本执行出现问题
         if (process.waitFor() != 0) {
             // throw new IOException();
-            System.out.printf("'%s' executes shell command failed %n", execTitle);
+            System.out.printf("%s executes shell command failed %n", execTitle);
             return -1;
         }
         {
@@ -769,7 +770,7 @@ public class AsyncExecJobs {
         createBaiIndex();
         generateGvcfFiles();
         mergeGvcfFiles();
-        
+
     }
 
     private void second() {

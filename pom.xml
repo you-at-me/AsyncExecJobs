@@ -1,106 +1,106 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+    <modelVersion>4.0.0</modelVersion>
 
-  <groupId>cn.example.jobs</groupId>
-  <artifactId>project-async-jobs</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+    <groupId>cn.example.jobs</groupId>
+    <artifactId>project-async-jobs</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
 
-  <name>project-async-jobs</name>
-  <description>project-async-jobs</description>
+    <name>project-async-jobs</name>
+    <description>project-async-jobs</description>
 
-  <properties>
-    <java.version>8</java.version>
-  </properties>
+    <properties>
+        <java.version>8</java.version>
+    </properties>
 
-  <dependencies>
-    <!-- <dependency> -->
-    <!--   <groupId>org.springframework.boot</groupId> -->
-    <!--   <artifactId>spring-boot-starter</artifactId> -->
-    <!--   &lt;!&ndash; <exclusions> &ndash;&gt; -->
-    <!--   &lt;!&ndash;   <exclusion> &ndash;&gt; -->
-    <!--   &lt;!&ndash;     <groupId>org.springframework.boot</groupId> &ndash;&gt; -->
-    <!--   &lt;!&ndash;     <artifactId>spring-boot-starter-logging</artifactId> &ndash;&gt; -->
-    <!--   &lt;!&ndash;   </exclusion> &ndash;&gt; -->
-    <!--   &lt;!&ndash; </exclusions> &ndash;&gt; -->
-    <!-- </dependency> -->
-    <!-- <dependency> -->
-    <!--   <groupId>org.projectlombok</groupId> -->
-    <!--   <artifactId>lombok</artifactId> -->
-    <!--   <optional>true</optional> -->
-    <!-- </dependency> -->
-    <dependency>
-      <groupId>cn.example.command-parser</groupId>
-      <artifactId>commandParser</artifactId>
-      <version>1.1</version>
-    </dependency>
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-      <version>RELEASE</version>
-      <scope>compile</scope>
-    </dependency>
-    <!-- 命令行窗口解析：运行成功之后后弹出一个窗口，用以查看命令行的，且其内部包含了logback,如果加入下述命令行窗口解析jar包时，需要将spring-boot-starter下排除的日志包注释打开；如果不用下述命令行窗口解析，则不需要排除spring-boot-starter下的日志包 -->
-    <!-- <dependency> -->
-    <!--   <groupId>cn.example.command-parser</groupId> -->
-    <!--   <artifactId>commandParserDesigner</artifactId> -->
-    <!--   <version>1.1</version> -->
-    <!-- </dependency> -->
-    <!-- <dependency> -->
-    <!--   <groupId>org.springframework.boot</groupId> -->
-    <!--   <artifactId>spring-boot-starter-test</artifactId> -->
-    <!--   <scope>test</scope> -->
-    <!-- </dependency> -->
-  </dependencies>
+    <dependencies>
+        <!-- <dependency> -->
+        <!--   <groupId>org.springframework.boot</groupId> -->
+        <!--   <artifactId>spring-boot-starter</artifactId> -->
+        <!--   &lt;!&ndash; <exclusions> &ndash;&gt; -->
+        <!--   &lt;!&ndash;   <exclusion> &ndash;&gt; -->
+        <!--   &lt;!&ndash;     <groupId>org.springframework.boot</groupId> &ndash;&gt; -->
+        <!--   &lt;!&ndash;     <artifactId>spring-boot-starter-logging</artifactId> &ndash;&gt; -->
+        <!--   &lt;!&ndash;   </exclusion> &ndash;&gt; -->
+        <!--   &lt;!&ndash; </exclusions> &ndash;&gt; -->
+        <!-- </dependency> -->
+        <!-- <dependency> -->
+        <!--   <groupId>org.projectlombok</groupId> -->
+        <!--   <artifactId>lombok</artifactId> -->
+        <!--   <optional>true</optional> -->
+        <!-- </dependency> -->
+        <dependency>
+            <groupId>cn.example.command-parser</groupId>
+            <artifactId>commandParser</artifactId>
+            <version>1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>RELEASE</version>
+            <scope>compile</scope>
+        </dependency>
+        <!-- 命令行窗口解析：运行成功之后后弹出一个窗口，用以查看命令行的，且其内部包含了logback,如果加入下述命令行窗口解析jar包时，需要将spring-boot-starter下排除的日志包注释打开；如果不用下述命令行窗口解析，则不需要排除spring-boot-starter下的日志包 -->
+        <!-- <dependency> -->
+        <!--   <groupId>cn.example.command-parser</groupId> -->
+        <!--   <artifactId>commandParserDesigner</artifactId> -->
+        <!--   <version>1.1</version> -->
+        <!-- </dependency> -->
+        <!-- <dependency> -->
+        <!--   <groupId>org.springframework.boot</groupId> -->
+        <!--   <artifactId>spring-boot-starter-test</artifactId> -->
+        <!--   <scope>test</scope> -->
+        <!-- </dependency> -->
+    </dependencies>
 
-  <build>
-    <finalName>asyncExecJobs</finalName>
-    <plugins>
-      <!-- 将项目依赖包和项目打成可执行jar包 -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>make-assembly</id>
-            <!--绑定的maven操作-->
-            <phase>package</phase>
-          </execution>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-            <configuration>
-              <!--如果不想在打包的后缀加上assembly.xml中设置的id，可以加上下面的配置-->
-              <appendAssemblyId>false</appendAssemblyId>
-              <archive>
-                <manifest>
-                  <!-- 是否绑定依赖，将外部jar包依赖加入到classPath中 -->
-                  <addClasspath>true</addClasspath>
-                  <!-- 依赖前缀，与之前设置的文件夹路径要匹配 -->
-                  <!-- <classpathPrefix>lib/</classpathPrefix> -->
-                  <!-- 执行的主程序入口 -->
-                  <mainClass>cn.example.jobs.JobsSample</mainClass>
-                </manifest>
-              </archive>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>8</source>
-          <target>8</target>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+    <build>
+        <finalName>asyncExecJobs</finalName>
+        <plugins>
+            <!-- 将项目依赖包和项目打成可执行jar包 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <!--绑定的maven操作-->
+                        <phase>package</phase>
+                    </execution>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <!--如果不想在打包的后缀加上assembly.xml中设置的id，可以加上下面的配置-->
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <archive>
+                                <manifest>
+                                    <!-- 是否绑定依赖，将外部jar包依赖加入到classPath中 -->
+                                    <addClasspath>true</addClasspath>
+                                    <!-- 依赖前缀，与之前设置的文件夹路径要匹配 -->
+                                    <!-- <classpathPrefix>lib/</classpathPrefix> -->
+                                    <!-- 执行的主程序入口 -->
+                                    <mainClass>cn.example.jobs.JobsSample</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>8</source>
+                    <target>8</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
